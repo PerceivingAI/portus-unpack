@@ -23,10 +23,10 @@ def main():
     parser_cli.add_argument('--conv-url', type=str, help='Grok or ChatGPT conversation URL')
     parser_cli.add_argument('--output', type=str, help='Output folder path')
 
-    format_group = parser_cli.add_mutually_exclusive_group()
-    format_group.add_argument('--json', action='store_true', help='Export as JSON')
-    format_group.add_argument('--md', action='store_true', help='Export as Markdown')
-    format_group.add_argument('--both', action='store_true', help='Export both JSON and Markdown')
+    # Allow combined format flags (no mutually exclusive group)
+    parser_cli.add_argument('--json', action='store_true', help='Export as JSON')
+    parser_cli.add_argument('--md', action='store_true', help='Export as Markdown')
+    parser_cli.add_argument('--both', action='store_true', help='Export both JSON and Markdown')
 
     parser_cli.add_argument('--message-time', action='store_true', help='Include message timestamps')
     parser_cli.add_argument('--model', action='store_true', help='Include model used per message')
@@ -50,15 +50,22 @@ def main():
     else:
         max_tokens = DEFAULT_SPLIT
 
-    # Determine export format
-    if args.json or (not args.md and not args.both):
-        export_tag = "JSON"
-    elif args.md:
-        export_tag = "MD"
-    elif args.both:
-        export_tag = "JSON_MD"
-    else:
-        export_tag = "JSON"  # fallback safeguard
+    # Determine format combination
+    json_requested = args.json or args.both
+    md_requested = args.md or args.both
+
+    if args.json and args.md:
+        json_requested = True
+        md_requested = True
+
+    if not json_requested and not md_requested:
+        json_requested = True  # Default fallback
+
+    export_tag = (
+        "JSON_MD" if json_requested and md_requested else
+        "JSON" if json_requested else
+        "MD"
+    )
 
     if not args.history and not args.conv_url:
         print("Error: You must provide either --history or --conv-url.")
@@ -75,7 +82,7 @@ def main():
             print(f"🔪 Max tokens per part: {'No split' if max_tokens is None else max_tokens}")
             print(f"📤 Export format: {export_tag}")
 
-            if export_tag == "JSON":
+            if json_requested:
                 index = writer.write_json_conversations(
                     raw_conversations,
                     output_dir,
@@ -86,8 +93,16 @@ def main():
                 )
                 print(f"📝 Exported {len(index)} JSON files to: {output_dir}")
 
-            elif export_tag in ("MD", "JSON_MD"):
-                print("📄 Markdown export is not implemented yet.")
+            if md_requested:
+                index = writer.write_md_conversations(
+                    raw_conversations,
+                    output_dir,
+                    include_time=args.message_time,
+                    include_model=args.model,
+                    max_tokens=max_tokens,
+                    export_tag=export_tag
+                )
+                print(f"📄 Exported {len(index)} Markdown files to: {output_dir}")
 
         except Exception as e:
             print(f"❌ Error: {e}")
