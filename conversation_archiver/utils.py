@@ -5,6 +5,7 @@ def get_token_count(text, tokenizer):
 
 
 def split_conversation(convo_dict, max_tokens):
+    """Splits a conversation dict into multiple parts based on token limits (safe between messages)."""
     if max_tokens is None:
         return [convo_dict]  # No splitting needed
 

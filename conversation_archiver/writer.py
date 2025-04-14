@@ -37,11 +37,16 @@ def slugify(text):
     return re.sub(r'[^a-zA-Z0-9]+', '_', text.strip().lower()).strip('_')
 
 
-def write_json_conversations(conversations, output_dir, include_time=False, include_model=False, max_tokens=None):
+def write_json_conversations(conversations, output_dir, include_time=False, include_model=False, max_tokens=None, export_tag="JSON"):
+    """Writes one or more JSON files per conversation, including metadata and format-specific folder names."""
     output_dir = Path(output_dir)
     index = []
     written = 0
     skipped = 0
+
+    timestamp = output_dir.name.split("conversations-archive-")[-1]
+    index_file_path = output_dir / f"index_{timestamp}.txt"
+    folder_names = []
 
     for i, convo in enumerate(conversations, start=1):
         convo_id = convo.get("id", f"conversation_{i:03d}")
@@ -90,8 +95,10 @@ def write_json_conversations(conversations, output_dir, include_time=False, incl
             continue
 
         folder_num = f"{i:03d}"
-        subfolder = output_dir / f"{folder_num}_{title_slug}"
+        subfolder_name = f"{folder_num}_{title_slug}_{export_tag}"
+        subfolder = output_dir / subfolder_name
         subfolder.mkdir(parents=True, exist_ok=True)
+        folder_names.append(subfolder_name)
 
         base = {
             "id": convo_id,
@@ -117,7 +124,12 @@ def write_json_conversations(conversations, output_dir, include_time=False, incl
             })
             written += 1
 
+    # Write index file
+    with open(index_file_path, "w", encoding="utf-8") as idx:
+        idx.write("\n".join(folder_names))
+
     print(f"📝 Exported {written} part(s). Skipped {skipped} empty conversation(s).")
+    print(f"📁 Index file created: {index_file_path.name}")
     return index
 
 

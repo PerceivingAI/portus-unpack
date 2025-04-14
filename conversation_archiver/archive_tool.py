@@ -50,6 +50,16 @@ def main():
     else:
         max_tokens = DEFAULT_SPLIT
 
+    # Determine export format
+    if args.json or (not args.md and not args.both):
+        export_tag = "JSON"
+    elif args.md:
+        export_tag = "MD"
+    elif args.both:
+        export_tag = "JSON_MD"
+    else:
+        export_tag = "JSON"  # fallback safeguard
+
     if not args.history and not args.conv_url:
         print("Error: You must provide either --history or --conv-url.")
         return
@@ -63,18 +73,20 @@ def main():
             output_dir = writer.ensure_output_folder(args.output)
             print(f"➡️  Output directory: {output_dir}")
             print(f"🔪 Max tokens per part: {'No split' if max_tokens is None else max_tokens}")
+            print(f"📤 Export format: {export_tag}")
 
-            if args.json or (not args.md and not args.both):
+            if export_tag == "JSON":
                 index = writer.write_json_conversations(
                     raw_conversations,
                     output_dir,
                     include_time=args.message_time,
                     include_model=args.model,
-                    max_tokens=max_tokens
+                    max_tokens=max_tokens,
+                    export_tag=export_tag
                 )
                 print(f"📝 Exported {len(index)} JSON files to: {output_dir}")
 
-            if args.md or args.both:
+            elif export_tag in ("MD", "JSON_MD"):
                 print("📄 Markdown export is not implemented yet.")
 
         except Exception as e:
