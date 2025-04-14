@@ -1,9 +1,9 @@
 import os
 import json
+import re
 from datetime import datetime
 from pathlib import Path
-import re
-
+from conversation_archiver.utils import split_conversation
 
 def ensure_output_folder(base_output=None):
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -37,7 +37,7 @@ def slugify(text):
     return re.sub(r'[^a-zA-Z0-9]+', '_', text.strip().lower()).strip('_')
 
 
-def write_json_conversations(conversations, output_dir, include_time=False, include_model=False):
+def write_json_conversations(conversations, output_dir, include_time=False, include_model=False, max_tokens=None):
     output_dir = Path(output_dir)
     index = []
     written = 0
@@ -93,9 +93,7 @@ def write_json_conversations(conversations, output_dir, include_time=False, incl
         subfolder = output_dir / f"{folder_num}_{title_slug}"
         subfolder.mkdir(parents=True, exist_ok=True)
 
-        file_path = subfolder / f"{folder_num}_{title_slug}_1.json"  # _2, _3 will be used if split later
-
-        result = {
+        base = {
             "id": convo_id,
             "title": title_raw,
             "created": created,
@@ -103,18 +101,23 @@ def write_json_conversations(conversations, output_dir, include_time=False, incl
             "messages": messages
         }
 
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(result, f, ensure_ascii=False, indent=2)
+        parts = split_conversation(base, max_tokens)
 
-        index.append({
-            "folder": subfolder.name,
-            "filename": file_path.name,
-            "title": title_raw,
-            "created": created
-        })
-        written += 1
+        for p_num, part in enumerate(parts, start=1):
+            filename = f"{folder_num}_{title_slug}_{p_num}.json"
+            file_path = subfolder / filename
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(part, f, ensure_ascii=False, indent=2)
 
-    print(f"📝 Exported {written} conversation(s). Skipped {skipped} with no valid messages.")
+            index.append({
+                "folder": subfolder.name,
+                "filename": filename,
+                "title": title_raw,
+                "created": created
+            })
+            written += 1
+
+    print(f"📝 Exported {written} part(s). Skipped {skipped} empty conversation(s).")
     return index
 
 
