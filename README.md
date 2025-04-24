@@ -57,12 +57,19 @@ You can pass in:
 
 ## 🗂 Output Structure
 
+JSON, Mardown or both!
+
 Each conversation gets its own folder:
 
 ```text
-001_topic_JSON/
-├── 001_topic_1.json
-├── 001_topic_2.json
+conversations-archive
+├── 001_topic_JSON/
+|   ├── 001_topic_1.json
+|   ├── 001_topic_2.json
+|
+├── 002_topic_JSON/
+    ├── 002_topic_1.json
+    ├── 002_topic_2.json
 ```
 
 An index file lists the folders:

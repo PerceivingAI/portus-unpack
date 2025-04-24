@@ -1,48 +1,57 @@
-import os
-import zipfile
+# conversation_archiver/parser.py
+
 import json
+import zipfile
 import tempfile
 from pathlib import Path
 
-
 def extract_conversations(input_path):
+    """
+    Handles input path resolution, file extraction if needed,
+    loads the conversations.json, detects the source format,
+    and returns (source, raw_data) without further transformation.
+    """
     input_path = Path(input_path)
 
     if not input_path.exists():
-        raise FileNotFoundError(f"Input path does not exist: {input_path}")
+        raise FileNotFoundError(f"❌ Path not found: {input_path}")
 
-    if input_path.is_file() and input_path.suffix.lower() == '.zip':
-        # Case 1: ZIP archive
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with zipfile.ZipFile(input_path, 'r') as zip_ref:
-                zip_ref.extractall(temp_dir)
-            json_path = Path(temp_dir) / 'conversations.json'
-            return _load_conversations_json(json_path)
+    # ZIP archive
+    if input_path.is_file() and input_path.suffix.lower() == ".zip":
+        with tempfile.TemporaryDirectory() as tmp:
+            with zipfile.ZipFile(input_path, "r") as z:
+                z.extractall(tmp)
+            return _load_and_detect(Path(tmp) / "conversations.json")
 
-    elif input_path.is_file() and input_path.name == 'conversations.json':
-        # Case 2: Direct JSON path
-        return _load_conversations_json(input_path)
+    # Direct JSON file
+    if input_path.is_file() and input_path.name == "conversations.json":
+        return _load_and_detect(input_path)
 
-    elif input_path.is_dir():
-        # Case 3: Folder containing conversations.json
-        json_path = input_path / 'conversations.json'
-        return _load_conversations_json(json_path)
+    # Folder containing conversations.json
+    if input_path.is_dir():
+        return _load_and_detect(input_path / "conversations.json")
 
-    else:
-        raise ValueError("Unsupported input. Provide a .zip file, a folder, or a conversations.json file.")
+    raise ValueError("❌ Unsupported input. Provide a .zip, a folder, or a conversations.json file.")
 
-
-def _load_conversations_json(json_path):
+def _load_and_detect(json_path):
     if not json_path.exists():
-        raise FileNotFoundError(f"conversations.json not found at: {json_path}")
+        raise FileNotFoundError(f"❌ conversations.json not found at: {json_path}")
 
-    with open(json_path, 'r', encoding='utf-8') as f:
+    with open(json_path, "r", encoding="utf-8") as f:
         try:
-            data = json.load(f)
+            raw_data = json.load(f)
         except json.JSONDecodeError:
-            raise ValueError("conversations.json is not valid JSON.")
+            raise ValueError("❌ conversations.json is not valid JSON.")
 
-    if not isinstance(data, list) or len(data) == 0:
-        raise ValueError("conversations.json appears to be empty or malformed.")
+    if not isinstance(raw_data, list) or not raw_data:
+        raise ValueError("❌ conversations.json is empty or malformed.")
 
-    return data
+    first = raw_data[0]
+    # Detect ChatGPT export
+    if "mapping" in first and "title" in first:
+        return "ChatGPT", raw_data
+    # Detect Anthropic export
+    if "chat_messages" in first and "account" in first:
+        return "Anthropic", raw_data
+
+    raise ValueError("❌ Unknown conversation format.")

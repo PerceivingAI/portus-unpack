@@ -1,112 +1,118 @@
+# conversation_archiver/archive_tool.py
+"""
+CLI entry-point for the Conversation Archiver.
+
+Adds debug prints:
+    • provider detected
+    • adapter path in use
+"""
+
 import argparse
-from conversation_archiver import parser, writer
+import sys
+from pathlib import Path
 
-DEFAULT_SPLIT = 8000
+from conversation_archiver.adapters import get_adapter
+from conversation_archiver import writer
+from conversation_archiver.parser import extract_conversations
 
-def parse_split_flag(split_str):
-    if not split_str:
+DEFAULT_SPLIT = 8_000  # tokens
+
+
+def _parse_split_flag(split_str: str | None) -> int | None:
+    if split_str is None:
         return DEFAULT_SPLIT
-
-    clean = split_str.strip().lower().replace('k', '')
+    txt = split_str.strip().lower().replace("k", "")
     try:
-        return int(float(clean) * 1000 if '.' in clean else int(clean))
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"Invalid split value: '{split_str}'. Use formats like '4k' or '10.5k'.")
+        return int(float(txt) * 1_000 if "." in txt else int(txt))
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            f"Invalid split value '{split_str}'.  Use formats like 4k or 10.5k."
+        ) from exc
 
 
-def main():
-    parser_cli = argparse.ArgumentParser(
-        description="Extract and archive ChatGPT conversation exports"
+def main() -> None:
+    p = argparse.ArgumentParser(
+        prog="archive-tool",
+        description="Extract and archive ChatGPT or Anthropic conversation exports",
     )
 
-    parser_cli.add_argument('--history', type=str, help='Path to ChatGPT ZIP export')
-    parser_cli.add_argument('--conv-url', type=str, help='Grok or ChatGPT conversation URL')
-    parser_cli.add_argument('--output', type=str, help='Output folder path')
+    p.add_argument("--history", required=True,
+                   help="Path to .zip export, folder, or conversations.json")
+    p.add_argument("--output", help="Output directory (default: ~/Downloads)")
 
-    # Allow combined format flags (no mutually exclusive group)
-    parser_cli.add_argument('--json', action='store_true', help='Export as JSON')
-    parser_cli.add_argument('--md', action='store_true', help='Export as Markdown')
-    parser_cli.add_argument('--both', action='store_true', help='Export both JSON and Markdown')
+    fmt = p.add_mutually_exclusive_group()
+    fmt.add_argument("--json", action="store_true", help="Export JSON only")
+    fmt.add_argument("--md", action="store_true", help="Export Markdown only")
+    fmt.add_argument("--both", action="store_true", help="Export both JSON & MD")
 
-    parser_cli.add_argument('--message-time', action='store_true', help='Include message timestamps')
-    parser_cli.add_argument('--model', action='store_true', help='Include model used per message')
+    p.add_argument("--message-time", action="store_true", help="Include message time")
+    p.add_argument("--model", action="store_true", help="Include model name")
 
-    parser_cli.add_argument(
-        '--split',
-        nargs='?',
-        const=str(DEFAULT_SPLIT // 1000) + 'k',
-        type=parse_split_flag,
-        help='Token limit for splitting conversations (e.g., 4k, 10.5k)'
+    split_grp = p.add_mutually_exclusive_group()
+    split_grp.add_argument(
+        "--split",
+        nargs="?",
+        const=f"{DEFAULT_SPLIT // 1_000}k",
+        type=_parse_split_flag,
+        help="Split conversations by token count (e.g. 4k). Default 8k.",
     )
-    parser_cli.add_argument('--no-split', action='store_true', help='Disable splitting entirely')
+    split_grp.add_argument("--no-split", action="store_true", help="Disable splitting")
 
-    args = parser_cli.parse_args()
+    args = p.parse_args()
 
-    # Determine split mode
-    if args.no_split:
-        max_tokens = None
-    elif args.split:
-        max_tokens = args.split
-    else:
-        max_tokens = DEFAULT_SPLIT
+    hist = Path(args.history)
+    if not hist.exists():
+        sys.exit(f"❌  path not found: {hist}")
 
-    # Determine format combination
-    json_requested = args.json or args.both
-    md_requested = args.md or args.both
+    # ─── detect provider ───────────────────────────────────────────────────
+    try:
+        source, raw_convos = extract_conversations(hist)
+    except Exception as e:
+        sys.exit(f"❌  failed to read export – {e}")
 
-    if args.json and args.md:
-        json_requested = True
-        md_requested = True
+    adapter = get_adapter(source)
+    print(f"🔍  Provider detected : {source}")
+    print(f"🛠   Adapter in use   : {adapter.__module__}.{adapter.__name__}")
+    print(f"✅  Conversations     : {len(raw_convos)}")
 
-    if not json_requested and not md_requested:
-        json_requested = True  # Default fallback
+    # ─── prepare run options ───────────────────────────────────────────────
+    max_tokens = None if args.no_split else (args.split or DEFAULT_SPLIT)
 
-    export_tag = (
-        "JSON_MD" if json_requested and md_requested else
-        "JSON" if json_requested else
-        "MD"
-    )
+    json_req = args.json or args.both
+    md_req = args.md or args.both
+    if not json_req and not md_req:
+        json_req = True  # default
 
-    if not args.history and not args.conv_url:
-        print("Error: You must provide either --history or --conv-url.")
-        return
+    tag = "JSON_MD" if json_req and md_req else "JSON" if json_req else "MD"
 
-    if args.history:
-        try:
-            print(f"📦 Extracting conversations from: {args.history}")
-            raw_conversations = parser.extract_conversations(args.history)
-            print(f"✅ Loaded {len(raw_conversations)} conversations.")
+    out_dir = writer.ensure_output_folder(args.output, source)
+    print(f"📂  Output directory  : {out_dir}")
+    print(f"🔪  Split             : {'disabled' if max_tokens is None else f'{max_tokens} tokens'}")
+    print(f"📤  Format            : {tag}")
 
-            output_dir = writer.ensure_output_folder(args.output)
-            print(f"➡️  Output directory: {output_dir}")
-            print(f"🔪 Max tokens per part: {'No split' if max_tokens is None else max_tokens}")
-            print(f"📤 Export format: {export_tag}")
+    # ─── write files ───────────────────────────────────────────────────────
+    if json_req:
+        writer.write_json_conversations(
+            raw_convos,
+            source,
+            out_dir,
+            include_time=args.message_time,
+            include_model=args.model,
+            max_tokens=max_tokens,
+            export_tag=tag,
+        )
 
-            if json_requested:
-                index = writer.write_json_conversations(
-                    raw_conversations,
-                    output_dir,
-                    include_time=args.message_time,
-                    include_model=args.model,
-                    max_tokens=max_tokens,
-                    export_tag=export_tag
-                )
-                print(f"📝 Exported {len(index)} JSON files to: {output_dir}")
+    if md_req:
+        writer.write_md_conversations(
+            raw_convos,
+            source,
+            out_dir,
+            include_time=args.message_time,
+            include_model=args.model,
+            max_tokens=max_tokens,
+            export_tag=tag,
+        )
 
-            if md_requested:
-                index = writer.write_md_conversations(
-                    raw_conversations,
-                    output_dir,
-                    include_time=args.message_time,
-                    include_model=args.model,
-                    max_tokens=max_tokens,
-                    export_tag=export_tag
-                )
-                print(f"📄 Exported {len(index)} Markdown files to: {output_dir}")
 
-        except Exception as e:
-            print(f"❌ Error: {e}")
-            return
-
-    elif args.conv_url:
-        print("🔗 URL parsing is not yet implemented.")
+if __name__ == "__main__":
+    main()
