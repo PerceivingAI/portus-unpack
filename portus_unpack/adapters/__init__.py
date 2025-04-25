@@ -13,8 +13,8 @@ Each adapter signature:
 from importlib import import_module
 
 _ADAPTERS = {
-    "ChatGPT": "conversation_archiver.adapters.adapter_chatgpt",
-    "Anthropic": "conversation_archiver.adapters.adapter_anthropic",
+    "ChatGPT": "portus_unpack.adapters.adapter_chatgpt",
+    "Anthropic": "portus_unpack.adapters.adapter_anthropic",
 }
 
 _cache = {}

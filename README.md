@@ -1,81 +1,109 @@
 ### 📄 `README.md`
 
 ```markdown
-# Conversation Archiver
+# Portus-Unpack &nbsp;🍱  
+_Unpack & split ChatGPT / Anthropic conversation exports_
 
-A fast, no-frills CLI tool to extract and archive ChatGPT conversation exports.  
-Supports `.zip`, folder, or `conversations.json` directly.  
-Outputs clean, split, searchable JSON files with optional metadata.
+[![PyPI](https://img.shields.io/pypi/v/portus-unpack.svg)](https://pypi.org/project/portus-unpack)
+[![License](https://img.shields.io/github/license/PerceivingAI/portus-unpack.svg)](LICENSE)
+
+Portus-Unpack turns the gnarly export files produced by **OpenAI (ChatGPT)**  
+and **Anthropic (Claude)** into tidy, human-readable JSON / Markdown archives.
+
+* zero normalisation – every provider keeps its own field names  
+* token-based chunking (`--split`) so huge chats don’t blow up editors  
+* single command works on **.zip**, folders, or `conversations.json`  
+* cross-platform paths (Windows / macOS / Linux)  
+* optional progress bar (`tqdm`) and auto-open folder on finish
 
 ---
 
 ## 📦 Installation
 
-```bash
-git clone https://github.com/PerceivingAI/conversation-archiver.git
-cd conversation-archiver
-pip install . --force-reinstall --no-use-pep517
-```
-
----
-
-## 🚀 Usage
+### PyPI (recommended)
 
 ```bash
-archive-tool --history export.zip
-
-archive-tool --history export.zip --both
-
-archive-tool --history export.zip --message-time --no-split
+pip install portus-unpack           # core
+pip install portus-unpack[progress] # + tqdm progress bar
 ```
 
-### 🛠 Options
+### Dev / editable install
 
-| Flag              | Description                                                                     |
-|-------------------|---------------------------------------------------------------------------------|
-| `--history`       | Path to exported ChatGPT `.zip`, folder, or `conversations.json`                |
-| `--output`        | (Optional) Output folder (default: `~/Downloads/conversations-archive-*`)       |
-| `--json`          | Export JSON only (default if no format flag used)                               |
-| `--md`            | *(Planned)* Export Markdown                                                     | 
-| `--both`          | *(Planned)* Export both JSON and Markdown                                       |
-| `--message-time`  | Include ISO timestamps per message                                              |
-| `--model`         | Include model ID per message                                                    |
-| `--split [value]k`| Split conversations by token count (default: 8k if omitted). E.g., --split 10.5k|
-| `--no-split`      | Disable splitting                                                               |
+```bash
+git clone https://github.com/PerceivingAI/portus-unpack.git
+cd portus-unpack
+pip install -e .[progress]
+```
+
+Python 3.8 + required.
 
 ---
 
-## 🧾 Input Formats
+## 🚀 Quick start
 
-You can pass in:
+```bash
+# default JSON, 8 000-token split, output to ~/Downloads
+portus-unpack MyChatGPTExport.zip
 
-- ✅ A `.zip` file from ChatGPT’s export tool
-- ✅ An unzipped folder (must contain `conversations.json`)
-- ✅ A direct path to `conversations.json`
+# JSON + Markdown, 6 000-token chunks, write in current dir and open folder
+portus-unpack anthropic.json -o . -f both -s 6k --open
 
----
-
-## 🗂 Output Structure
-
-JSON, Mardown or both!
-
-Each conversation gets its own folder:
-
-```text
-conversations-archive
-├── 001_topic_JSON/
-|   ├── 001_topic_1.json
-|   ├── 001_topic_2.json
-|
-├── 002_topic_JSON/
-    ├── 002_topic_1.json
-    ├── 002_topic_2.json
-```
-
-An index file lists the folders:
-
-```text
-index_2025-04-14_10-01-33.txt
+# one huge JSON per convo (no split) with timestamps and model names
+portus-unpack unzipped_folder -s none -m -M
 ```
 
 ---
+
+## 🛠 CLI reference
+
+| flag | description |
+|------|-------------|
+| `input_path` | **positional.** Zip, folder, or `conversations.json`. |
+| `-o, --output DIR` | Output dir (`.` = current). Default: `~/Downloads`. |
+| `-f, --format {json,md,both}` | Export format (default `json`). |
+| `-s, --split TOKENS` | Token limit (`6k`, `8000`, `none`). Default `8k`. |
+| `-m` | Add ISO timestamp to each message. |
+| `-M` | Add model name to each message. |
+| `--open` | Open output folder when done. |
+| `--verbose` | Show provider / adapter banner. |
+| `-v, --version` | Show version & exit. |
+
+---
+
+## 📂 Output layout
+
+```
+Conversation-ChatGPT-2025-04-24_15-59-13/
+├── 001_generate_synthetic_time_series_JSON/
+│   └── 001_generate_synthetic_time_series_1.json
+├── 002_fast_food_frenzy_MD/
+│   ├── 002_fast_food_frenzy_1.md
+│   └── 002_fast_food_frenzy_2.md
+└── index_2025-04-24_15-59-13.txt
+```
+
+*Every folder holds all the parts for one conversation.*  
+`index_*.txt` lists the sub-folder names for quick navigation.
+
+---
+
+## 🤖 Providers supported
+
+| provider | export source | detected by | notes |
+|----------|---------------|-------------|-------|
+| **ChatGPT** | _Settings ▸ Data Controls ▸ Export Data_ (`conversations.json` inside .zip) | top-level `"mapping"` key | flattening walks the tree; `create_time / update_time` converted to ISO |
+| **Anthropic** | _Settings ▸ Export conversations_ | top-level `"chat_messages"` key | `account` block dropped; all other fields kept verbatim |
+
+---
+
+## 🧑‍💻 Contributing
+
+Pull requests are welcome! Clone, create a venv, run `pytest`.  
+Style: **black**, **ruff**.  Discuss big changes in an issue first.
+
+---
+
+## 📜 License
+
+MIT © PerceivingAI
+```

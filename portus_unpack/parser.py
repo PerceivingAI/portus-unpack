@@ -1,4 +1,4 @@
-# conversation_archiver/parser.py
+# portus_unpack/parser.py
 
 import json
 import zipfile

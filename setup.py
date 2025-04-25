@@ -1,27 +1,29 @@
+from pathlib import Path
 from setuptools import setup, find_packages
 
 setup(
-    name='conversation-archiver',
-    version='0.1.0',
-    packages=['conversation_archiver'],
+    name="portus-unpack",
+    version="1.0.0",
+    packages=find_packages(),
     install_requires=[
-        'tiktoken',
-        'beautifulsoup4',
-        'requests'
+        "tiktoken",
     ],
+    extras_require={
+        "progress": ["tqdm>=4.0"]
+    },
     entry_points={
-        'console_scripts': [
-            'archive-tool=conversation_archiver.__main__:main'
+        "console_scripts": [
+            "portus-unpack = portus_unpack.__main__:main",
         ]
     },
-    author='Your Name',
-    description='A CLI tool to extract and archive ChatGPT conversations.',
-    long_description=open('README.md').read(),
-    long_description_content_type='text/markdown',
-    url='https://github.com/your_username/conversation-archiver',
+    author="PerceivingAI",
+    description="Portus-Unpack – CLI to unpack & split ChatGPT / Anthropic exports.",
+    long_description=Path("README.md").read_text(encoding="utf-8"),
+    long_description_content_type="text/markdown",
+    url="https://github.com/PerceivingAI/portus-unpack",
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'Operating System :: OS Independent'
+        "Programming Language :: Python :: 3",
+        "Operating System :: OS Independent",
     ],
-    python_requires='>=3.8',
+    python_requires=">=3.8",
 )
