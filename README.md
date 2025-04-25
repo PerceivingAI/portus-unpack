@@ -2,7 +2,6 @@
 _Unpack & split ChatGPT / Anthropic conversation exports_
 
 [![PyPI](https://img.shields.io/pypi/v/portus-unpack.svg)](https://pypi.org/project/portus-unpack)
-[![License](https://img.shields.io/github/license/PerceivingAI/portus-unpack.svg)](LICENSE)
 
 Portus-Unpack turns the gnarly export files produced by **OpenAI (ChatGPT)**  
 and **Anthropic (Claude)** into tidy, human-readable JSON / Markdown archives.

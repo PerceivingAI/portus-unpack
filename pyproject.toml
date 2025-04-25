@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "portus-unpack"
+version = "1.0.0"
+description = "Portus-Unpack – CLI to unpack & split ChatGPT / Anthropic exports."
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+  { name = "PerceivingAI" },
+]
+dependencies = ["tiktoken"]
+optional-dependencies = { progress = ["tqdm>=4.0"] }
+urls = { "Homepage" = "https://github.com/PerceivingAI/portus-unpack" }
+
+[project.scripts]
+portus-unpack = "portus_unpack.__main__:main"
