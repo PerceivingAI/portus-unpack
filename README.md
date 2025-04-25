@@ -1,6 +1,3 @@
-### 📄 `README.md`
-
-```markdown
 # Portus-Unpack &nbsp;🍱  
 _Unpack & split ChatGPT / Anthropic conversation exports_
 
@@ -106,4 +103,4 @@ Style: **black**, **ruff**.  Discuss big changes in an issue first.
 ## 📜 License
 
 MIT © PerceivingAI
-```
+
